@@ -47,6 +47,19 @@ java.lang.UnsatisfiedLinkError: Failed to dynamically load library:
 `xclipse.env` รับค่าพิเศษเพิ่มได้: `XCLIPSE_EGL_LIB=<ชื่อหรือพาธของ EGL ที่ต้องการ>` (ค่าเริ่มต้น
 ลอง `libEGL_mesa.so` แล้วจึง `libEGL.so`)
 
+### สถาปัตยกรรมแบบเดียวกับปลั๊กอินที่ใช้งานได้ (MobileGL/MobileGlues)
+
+ปลั๊กอินที่ทำงานจริงจะ **ถือทั้งฝั่ง GL และ EGL เอง** (MobileGL ประกาศ lib เดียวเป็นทั้ง
+`rendererGLPath` และ `rendererEGLPath`) ตอนนี้ปลั๊กอินนี้ทำเหมือนกัน:
+
+| field | ค่า | หน้าที่ |
+|---|---|---|
+| GL | `libglxshim.so` | resolver ส่งต่อ `glXGetProcAddress*` ไป `eglGetProcAddress` |
+| EGL | `libEGL_xclipse.so` | front-end ของ EGL: forward ทุก `egl*` ไป EGL จริง (`libEGL_mesa.so` → `libEGL.so`) |
+
+`libEGL_xclipse.so` เปิด Mesa ด้วย `RTLD_LOCAL` (ไม่ให้ symbol ไปทับของคนอื่น) และกัน
+`eglQueryString`/`glGetString` ไม่ให้คืน `NULL` เพราะ launcher เอาไป parse ด้วย `strtol`
+
 **ไม่บังคับ GL 4.6 แล้ว** — ค่าเริ่มต้นปล่อยให้ Mesa รายงานเวอร์ชันจริง เพราะการฝืน 4.6 บนไดรเวอร์ Vulkan
 ที่รองรับไม่ถึงทำให้ Zink สร้าง context ไม่ได้ แล้ว launcher จะ crash ตอน parse เวอร์ชัน (SIGSEGV ใน `strtol`)
 ถ้าอยากฝืน 3.3 ค่อยติ๊กในหน้าตั้งค่า

@@ -17,7 +17,7 @@ jobs:
         with: { gradle-version: 8.9 }
 
       # Set repo variable MESA_LIBS_URL (Settings > Variables) to your arm64 Zink/Kopper build.
-      # Skipped when the variable is unset so the APK still builds (it will ship without Mesa libs).
+      # Skipped when the variable is unset: the plugin then uses the launcher's own Mesa.
       - name: Fetch Mesa libs
         if: ${{ vars.MESA_LIBS_URL != '' }}
         env:
@@ -38,8 +38,8 @@ jobs:
           gradle assembleDebug $EXTRA
 
       # The renderer metadata names the GL/EGL libraries the launcher will load from the APK's
-      # nativeLibraryDir. Shipping an APK whose declared GL library is missing makes the game die
-      # with "Failed to dynamically load library ... libglxshim.so" - fail the build instead.
+      # nativeLibraryDir. Shipping an APK whose declared library is missing makes the game die with
+      # "Failed to dynamically load library ... libglxshim.so" - fail the build instead.
       - name: Verify packaged plugin libraries
         run: |
           set -euo pipefail
@@ -47,7 +47,7 @@ jobs:
           echo "APK: $apk"
           list=$(unzip -l "$apk")
           echo "$list" | grep 'lib/arm64-v8a/'
-          for lib in libglxshim.so libxclipse_shim.so; do
+          for lib in libglxshim.so libEGL_xclipse.so libxclipse_shim.so; do
             if ! grep -q "lib/arm64-v8a/$lib" <<<"$list"; then
               echo "::error::lib/arm64-v8a/$lib is declared by the plugin manifest but missing from the APK"
               exit 1
@@ -57,7 +57,7 @@ jobs:
             if grep -q "lib/arm64-v8a/$lib" <<<"$list"; then
               echo "bundled: $lib"
             else
-              echo "::warning::$lib is not bundled; the plugin will use the launcher's own Mesa (resolved by name via LD_LIBRARY_PATH)"
+              echo "::warning::$lib is not bundled; libEGL_xclipse.so will use the launcher's own Mesa (resolved by name via LD_LIBRARY_PATH)"
             fi
           done
 

@@ -10,6 +10,12 @@ target_link_libraries(xclipse_shim log dl)
 add_library(glxshim SHARED glxshim.c)
 target_link_libraries(glxshim log dl)
 
+# libEGL_xclipse.so - the EGL library the plugin's `renderer` metadata points at, the same way
+# working launcher plugins own their EGL side. It forwards to the real EGL (Mesa or system) and
+# keeps the launcher from parsing a NULL version string.
+add_library(egl_xclipse SHARED eglshim.c)
+target_link_libraries(egl_xclipse log dl)
+
 # Optional: experimental RADV Xclipse activation via bylaws/libadrenotools.
 # CI sets -DXCLIPSE_ADRENOTOOLS_DIR=<checkout of libadrenotools>.
 option(XCLIPSE_WITH_ADRENOTOOLS "Link libadrenotools for custom Vulkan driver loading" OFF)

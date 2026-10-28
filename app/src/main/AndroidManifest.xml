@@ -19,8 +19,12 @@
              NOTE: verify field names/separators against the FCL release you target. -->
         <meta-data android:name="fclPlugin" android:value="true" />
         <meta-data android:name="des" android:value="Zink/Kopper tuned for Exynos 1580 (Xclipse 540, RDNA 3)" />
+        <!-- The plugin owns both sides of the renderer pair, the way working launcher plugins do
+             (MobileGL declares its own library as both GL and EGL). Pointing the EGL field at Mesa's
+             libEGL_mesa.so left the launcher loading a library outside the APK, whose context
+             creation failed and whose NULL version string crashed the launcher's EGL bridge. -->
         <meta-data android:name="renderer"
-            android:value="Xclipse RDNA:libglxshim.so:libEGL_mesa.so" />
+            android:value="Xclipse RDNA:libglxshim.so:libEGL_xclipse.so" />
         <!-- No MESA_GL_VERSION_OVERRIDE / MESA_GLSL_VERSION_OVERRIDE here on purpose: forcing 4.6 on a
              Vulkan driver that cannot back it makes Zink fail to create a context, and the launcher's
              GL version probe then crashes on the NULL string. The settings app writes those
