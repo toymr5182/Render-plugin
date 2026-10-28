@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Needed so the settings app can write /sdcard/XclipseRDNA/xclipse.env -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
+    <application
+        android:allowBackup="false"
+        android:extractNativeLibs="true"
+        android:label="Xclipse RDNA Renderer"
+        android:theme="@android:style/Theme.Material.Light.DarkActionBar">
+
+        <!-- ===== FCL renderer plugin registration =====
+             Layout follows the plugin format used by ShirosakiMio/FCLRendererPlugin,
+             Ironized Zink and other FCL plugins:
+               fclPlugin = true
+               renderer  = "<Display name>:<GL lib>:<EGL lib>"   (libs from nativeLibraryDir)
+               pojavEnv  = KEY=VALUE pairs separated by ':'      (injected into the game env)
+             NOTE: verify field names/separators against the FCL release you target. -->
+        <meta-data android:name="fclPlugin" android:value="true" />
+        <meta-data android:name="des" android:value="Zink/Kopper tuned for Exynos 1580 (Xclipse 540, RDNA 3)" />
+        <meta-data android:name="renderer"
+            android:value="Xclipse RDNA:libglxshim.so:libEGL_mesa.so" />
+        <meta-data android:name="pojavEnv"
+            android:value="POJAV_RENDERER=opengles3_desktopgl_zink_kopper:MESA_LOADER_DRIVER_OVERRIDE=zink:MESA_GL_VERSION_OVERRIDE=4.6:MESA_GLSL_VERSION_OVERRIDE=460:mesa_glthread=true:DLOPEN=libxclipse_shim.so" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

@@ -1,0 +1,41 @@
+name: Build APK
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: 8.9 }
+
+      # Set repo variable MESA_LIBS_URL (Settings > Variables) to your arm64 Zink/Kopper build.
+      # Skipped when the variable is unset so the APK still builds (it will ship without Mesa libs).
+      - name: Fetch Mesa libs
+        if: ${{ vars.MESA_LIBS_URL != '' }}
+        env:
+          MESA_LIBS_URL: ${{ vars.MESA_LIBS_URL }}
+        run: bash scripts/fetch_mesa_libs.sh
+
+      # Optional experimental RADV loader (set repo variable WITH_ADRENOTOOLS=1)
+      - name: Fetch libadrenotools
+        if: ${{ vars.WITH_ADRENOTOOLS == '1' }}
+        run: git clone --recursive https://github.com/bylaws/libadrenotools.git third_party/libadrenotools
+
+      - name: Build
+        run: |
+          EXTRA=""
+          if [ "${{ vars.WITH_ADRENOTOOLS }}" = "1" ]; then
+            EXTRA="-Pxclipse.adrenotools=$PWD/third_party/libadrenotools"
+          fi
+          gradle assembleDebug $EXTRA
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XclipseRDNA-debug
+          path: app/build/outputs/apk/debug/*.apk
