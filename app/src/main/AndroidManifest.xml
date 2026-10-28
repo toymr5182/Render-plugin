@@ -21,8 +21,12 @@
         <meta-data android:name="des" android:value="Zink/Kopper tuned for Exynos 1580 (Xclipse 540, RDNA 3)" />
         <meta-data android:name="renderer"
             android:value="Xclipse RDNA:libglxshim.so:libEGL_mesa.so" />
+        <!-- No MESA_GL_VERSION_OVERRIDE / MESA_GLSL_VERSION_OVERRIDE here on purpose: forcing 4.6 on a
+             Vulkan driver that cannot back it makes Zink fail to create a context, and the launcher's
+             GL version probe then crashes on the NULL string. The settings app writes those
+             overrides only when you explicitly ask for GL 3.3. -->
         <meta-data android:name="pojavEnv"
-            android:value="POJAV_RENDERER=opengles3_desktopgl_zink_kopper:MESA_LOADER_DRIVER_OVERRIDE=zink:MESA_GL_VERSION_OVERRIDE=4.6:MESA_GLSL_VERSION_OVERRIDE=460:mesa_glthread=true:DLOPEN=libxclipse_shim.so" />
+            android:value="POJAV_RENDERER=opengles3_desktopgl_zink_kopper:MESA_LOADER_DRIVER_OVERRIDE=zink:mesa_glthread=true:DLOPEN=libxclipse_shim.so" />
 
         <activity
             android:name=".MainActivity"

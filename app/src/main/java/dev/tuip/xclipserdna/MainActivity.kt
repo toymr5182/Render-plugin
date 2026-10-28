@@ -58,7 +58,7 @@ class MainActivity : Activity() {
         }
         root.addView(preset)
 
-        val gl33 = CheckBox(this).apply { text = "Report OpenGL 3.3 instead of 4.6" }
+        val gl33 = CheckBox(this).apply { text = "Report OpenGL 3.3 instead of the driver's own version" }
         root.addView(gl33)
 
         root.addView(Button(this).apply {
@@ -72,7 +72,7 @@ class MainActivity : Activity() {
         })
 
         root.addView(TextView(this).apply {
-            text = "\nIn FCL: Settings -> Renderer -> \"Xclipse RDNA\". Force-stop FCL after installing/updating this APK."
+            text = "\nIn the launcher: Settings -> Renderer -> \"Xclipse RDNA\". Force-stop the launcher after installing/updating this APK."
         })
         setContentView(root)
     }
@@ -92,14 +92,20 @@ class MainActivity : Activity() {
         lines += "XCLIPSE_MODE=${if (radv) "radv" else "system"}"
         if (radv) lines += "XCLIPSE_RADV_DIR=${File(dir, "radv").absolutePath}"
 
-        lines += "MESA_GL_VERSION_OVERRIDE=${if (gl33) "3.3" else "4.6"}"
-        lines += "MESA_GLSL_VERSION_OVERRIDE=${if (gl33) "330" else "460"}"
+        lines += "MESA_LOADER_DRIVER_OVERRIDE=zink"
         lines += "mesa_glthread=true"
         lines += "MESA_SHADER_CACHE_DIR=${File(dir, "shadercache").absolutePath}"
 
+        // Only override the advertised version when asked: forcing 4.6 makes Zink fail to create a
+        // context on drivers that cannot back it.
+        if (gl33) {
+            lines += "MESA_GL_VERSION_OVERRIDE=3.3"
+            lines += "MESA_GLSL_VERSION_OVERRIDE=330"
+        }
+
         when (preset) {
             1 -> lines += "ZINK_DESCRIPTORS=lazy"           // Performance
-            2 -> { lines += "mesa_glthread=false"; lines += "MESA_GLSL_VERSION_OVERRIDE=330" } // Max compat
+            2 -> lines += "mesa_glthread=false"             // Max compatibility
         }
 
         dir.mkdirs()

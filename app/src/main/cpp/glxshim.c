@@ -49,7 +49,6 @@ typedef XclipseProc (*PFNEGLGETPROCADDRESSPROC)(const char *procname);
 static pthread_once_t g_once = PTHREAD_ONCE_INIT;
 static void *g_egl_lib;
 static PFNEGLGETPROCADDRESSPROC g_egl_get_proc_address;
-static const char *g_egl_name = "(none)";
 
 __attribute__((constructor)) static void glxshim_init(void) {
     LOGI("glxshim loaded (GLX entry points are forwarded to EGL)");
@@ -68,25 +67,16 @@ static void *open_egl(const char *name) {
 
 static void load_egl(void) {
     const char *forced = getenv("XCLIPSE_EGL_LIB");
-    if (forced && *forced) {
-        g_egl_lib = open_egl(forced);
-        if (g_egl_lib) g_egl_name = forced;
-    }
-    if (!g_egl_lib) {
-        g_egl_lib = open_egl("libEGL_mesa.so");
-        if (g_egl_lib) g_egl_name = "libEGL_mesa.so";
-    }
-    if (!g_egl_lib) {
-        g_egl_lib = open_egl("libEGL.so");
-        if (g_egl_lib) g_egl_name = "libEGL.so";
-    }
+    if (forced && *forced) g_egl_lib = open_egl(forced);
+    if (!g_egl_lib) g_egl_lib = open_egl("libEGL_mesa.so");
+    if (!g_egl_lib) g_egl_lib = open_egl("libEGL.so");
     if (!g_egl_lib) {
         LOGW("no EGL library found; GL functions can only resolve via dlsym(RTLD_DEFAULT)");
         return;
     }
     g_egl_get_proc_address = (PFNEGLGETPROCADDRESSPROC)dlsym(g_egl_lib, "eglGetProcAddress");
     if (!g_egl_get_proc_address) {
-        LOGW("%s does not export eglGetProcAddress; falling back to dlsym()", g_egl_name);
+        LOGW("the loaded EGL library does not export eglGetProcAddress; falling back to dlsym()");
     }
 }
 
@@ -105,20 +95,76 @@ static void *resolve(const char *name) {
     return dlsym(RTLD_DEFAULT, name);
 }
 
+// ---- glGetString guard ---------------------------------------------------------------------
+// Launchers and LWJGL parse the version string straight away ("EGLBridge: Binding to OpenGL" then
+// strtol(glGetString(GL_VERSION))). While no context is current that returns NULL and the process
+// dies with SIGSEGV inside libc's strtol. Hand back an inert placeholder instead of NULL so the
+// launch continues to real context creation and reports its own error, and log the moment it
+// happens.
+
+#define GL_VENDOR                   0x1F00
+#define GL_RENDERER                 0x1F01
+#define GL_VERSION                  0x1F02
+#define GL_EXTENSIONS               0x1F03
+#define GL_SHADING_LANGUAGE_VERSION 0x8B8C
+
+typedef const unsigned char *(*PFNGLGETSTRINGPROC)(unsigned int name);
+typedef const unsigned char *(*PFNGLGETSTRINGIPROC)(unsigned int index, unsigned int name);
+
+static PFNGLGETSTRINGPROC g_real_get_string;
+static PFNGLGETSTRINGIPROC g_real_get_string_i;
+
+static const unsigned char *shim_glGetString(unsigned int name) {
+    if (!g_real_get_string) g_real_get_string = (PFNGLGETSTRINGPROC)resolve("glGetString");
+    const unsigned char *value = g_real_get_string ? g_real_get_string(name) : NULL;
+    if (value) return value;
+
+    switch (name) {
+        case GL_VERSION:
+            LOGW("glGetString(GL_VERSION) returned NULL (no context current yet); returning a "
+                 "placeholder so the launcher's version parse cannot crash");
+            return (const unsigned char *)"0.0 Xclipse-RDNA-no-context";
+        case GL_SHADING_LANGUAGE_VERSION:
+            return (const unsigned char *)"0.00";
+        case GL_RENDERER:
+        case GL_VENDOR:
+            return (const unsigned char *)"Xclipse RDNA";
+        case GL_EXTENSIONS:
+            return (const unsigned char *)"";
+        default:
+            return NULL;
+    }
+}
+
+static const unsigned char *shim_glGetStringi(unsigned int index, unsigned int name) {
+    if (!g_real_get_string_i) g_real_get_string_i = (PFNGLGETSTRINGIPROC)resolve("glGetStringi");
+    const unsigned char *value = g_real_get_string_i ? g_real_get_string_i(index, name) : NULL;
+    if (value || name != GL_EXTENSIONS) return value;
+    return (const unsigned char *)"";
+}
+
 // ---- GLX resolver API used by LWJGL -------------------------------------------------------
 
+static void *resolve_gl(const char *name) {
+    if (name) {
+        if (strcmp(name, "glGetString") == 0) return (void *)shim_glGetString;
+        if (strcmp(name, "glGetStringi") == 0) return (void *)shim_glGetStringi;
+    }
+    return resolve(name);
+}
+
 XclipseProc glXGetProcAddressARB(const unsigned char *procName) {
-    return (XclipseProc)resolve((const char *)procName);
+    return (XclipseProc)resolve_gl((const char *)procName);
 }
 
 XclipseProc glXGetProcAddress(const unsigned char *procName) {
-    return (XclipseProc)resolve((const char *)procName);
+    return (XclipseProc)resolve_gl((const char *)procName);
 }
 
 // ---- "There is no GLX context here" stubs ------------------------------------------------
-// Context management on Android is EGL (the launcher owns it), so these report GLX as
-// unavailable instead of handing out garbage pointers. They exist only so a GLX-based code path
-// fails cleanly rather than aborting on a missing symbol.
+// Context management on Android is EGL (the launcher owns it), so these report GLX as unavailable
+// instead of handing out garbage pointers. They exist only so a GLX-based code path fails cleanly
+// rather than aborting on a missing symbol.
 
 int glXQueryVersion(void *display, int *major, int *minor) {
     (void)display;

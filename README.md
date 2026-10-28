@@ -47,6 +47,14 @@ java.lang.UnsatisfiedLinkError: Failed to dynamically load library:
 `xclipse.env` รับค่าพิเศษเพิ่มได้: `XCLIPSE_EGL_LIB=<ชื่อหรือพาธของ EGL ที่ต้องการ>` (ค่าเริ่มต้น
 ลอง `libEGL_mesa.so` แล้วจึง `libEGL.so`)
 
+**ไม่บังคับ GL 4.6 แล้ว** — ค่าเริ่มต้นปล่อยให้ Mesa รายงานเวอร์ชันจริง เพราะการฝืน 4.6 บนไดรเวอร์ Vulkan
+ที่รองรับไม่ถึงทำให้ Zink สร้าง context ไม่ได้ แล้ว launcher จะ crash ตอน parse เวอร์ชัน (SIGSEGV ใน `strtol`)
+ถ้าอยากฝืน 3.3 ค่อยติ๊กในหน้าตั้งค่า
+
+ใน `libglxshim.so` มี guard ให้ `glGetString(GL_VERSION)` คืนค่า placeholder แทน `NULL` เมื่อยังไม่มี
+context current (log จะขึ้น `XclipseRDNA/glx: glGetString(GL_VERSION) returned NULL ...`) — กัน crash
+ใน `strtol` ที่เห็นใน log ก่อนหน้า
+
 โหมด RADV: ดาวน์โหลด zip จาก `JimVulkan/radv-xclipse` (รองรับ Xclipse 540, Android 14+) แล้วแตกไฟล์
 `vulkan.radeon.so` ไปไว้ที่ `/sdcard/XclipseRDNA/radv/`
 
