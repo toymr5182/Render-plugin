@@ -13,8 +13,11 @@ target_link_libraries(glxshim log dl)
 # libEGL_xclipse.so - the EGL library the plugin's `renderer` metadata points at, the same way
 # working launcher plugins own their EGL side. It forwards to the real EGL (Mesa or system) and
 # keeps the launcher from parsing a NULL version string.
-add_library(egl_xclipse SHARED eglshim.c)
-target_link_libraries(egl_xclipse log dl)
+# The target name carries the exact file-name casing on purpose: the manifest declares
+# libEGL_xclipse.so and Android file names are case sensitive, so a lower-case libegl_xclipse.so
+# would neither load nor satisfy the packaging check.
+add_library(EGL_xclipse SHARED eglshim.c)
+target_link_libraries(EGL_xclipse log dl)
 
 # Optional: experimental RADV Xclipse activation via bylaws/libadrenotools.
 # CI sets -DXCLIPSE_ADRENOTOOLS_DIR=<checkout of libadrenotools>.
