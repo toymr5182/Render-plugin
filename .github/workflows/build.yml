@@ -37,6 +37,30 @@ jobs:
           fi
           gradle assembleDebug $EXTRA
 
+      # The renderer metadata names the GL/EGL libraries the launcher will load from the APK's
+      # nativeLibraryDir. Shipping an APK whose declared GL library is missing makes the game die
+      # with "Failed to dynamically load library ... libglxshim.so" - fail the build instead.
+      - name: Verify packaged plugin libraries
+        run: |
+          set -euo pipefail
+          apk=$(ls app/build/outputs/apk/debug/*.apk)
+          echo "APK: $apk"
+          list=$(unzip -l "$apk")
+          echo "$list" | grep 'lib/arm64-v8a/'
+          for lib in libglxshim.so libxclipse_shim.so; do
+            if ! grep -q "lib/arm64-v8a/$lib" <<<"$list"; then
+              echo "::error::lib/arm64-v8a/$lib is declared by the plugin manifest but missing from the APK"
+              exit 1
+            fi
+          done
+          for lib in libEGL_mesa.so libzink_dri.so; do
+            if grep -q "lib/arm64-v8a/$lib" <<<"$list"; then
+              echo "bundled: $lib"
+            else
+              echo "::warning::$lib is not bundled; the plugin will use the launcher's own Mesa (resolved by name via LD_LIBRARY_PATH)"
+            fi
+          done
+
       - uses: actions/upload-artifact@v4
         with:
           name: XclipseRDNA-debug

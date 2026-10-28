@@ -1,35 +1,60 @@
 # FCL Xclipse RDNA Renderer (Exynos 1580 / Xclipse 540)
 
-ปลั๊กอิน renderer แบบ APK สำหรับ Fold Craft Launcher (FCL): Zink + Kopper (OpenGL 4.6 บน Vulkan) จูนสำหรับ Xclipse 540 (RDNA 3)
+ปลั๊กอิน renderer แบบ APK สำหรับ launcher ตระกูล Pojav/FCL/Zalith: Zink + Kopper (OpenGL 4.6 บน Vulkan) จูนสำหรับ Xclipse 540 (RDNA 3)
 
 ## สถานะ (อ่านก่อน)
 
 | ส่วน | สถานะ |
 |---|---|
-| โครงปลั๊กอิน (manifest `fclPlugin`/`renderer`/`pojavEnv`) | เขียนตามรูปแบบปลั๊กอิน FCL ที่มีอยู่ **ยังไม่ได้ทดสอบกับ FCL จริง** |
-| หน้าตั้งค่า + `xclipse.env` + shim (`DLOPEN`) | ตรวจ syntax แล้ว ยังไม่ได้รันบนเครื่อง |
-| โหมด **System Vulkan** | น่าจะใช้ได้ ถ้ามี Mesa libs ครบ |
+| โครงปลั๊กอิน (manifest `fclPlugin`/`renderer`/`pojavEnv`) | ทำงานกับ ZalithLauncher 3 ได้ (ตัวเลือก renderer ขึ้นในรายการ) |
+| `libglxshim.so` (GLX→EGL resolver) | build จากรีโปนี้เอง ไม่ต้องพึ่ง Mesa archive แล้ว |
+| หน้าตั้งค่า + `xclipse.env` + shim (`DLOPEN`) | shim ถูกโหลดจริงในโปรเซสเกม (ยืนยันจาก log) |
+| โหมด **System Vulkan** | ต้องมี `libEGL_mesa.so` + `libzink_dri.so` จากที่ใดที่หนึ่ง (bundled หรือของ launcher) |
 | โหมด **RADV Xclipse** | **ทดลอง** — shim ดึง `vulkan.radeon.so` มาไว้ที่ที่รันได้ แต่ยังไม่ทำให้ Zink ใช้ไดรเวอร์นั้น (ดู "ปัญหาที่ยังเปิดอยู่") |
+
+## ทำไมเคย "เด้ง" ตอนเลือก renderer นี้ (แก้แล้ว)
+
+Launcher อ่าน `renderer` จาก manifest (`Xclipse RDNA:libglxshim.so:libEGL_mesa.so`) แล้วส่ง
+`-Dorg.lwjgl.opengl.libname=<native dir ของปลั๊กอิน>/libglxshim.so` ให้เกม จากนั้น LWJGL จะ `dlopen()`
+**พาธแบบ absolute** นั้นทันที (`GL.create()` → `Library.loadNative`)
+
+ถ้า APK ไม่มีไฟล์นั้น (เช่น build ตอนที่ยังไม่ได้ตั้ง `MESA_LIBS_URL` แล้วสคริปต์ fetch ถูกข้าม) เกมจะตายที่
+`Loading library OpenGL` ด้วย
+
+```
+java.lang.UnsatisfiedLinkError: Failed to dynamically load library:
+  /data/app/.../dev.tuip.xclipserdna.../lib/arm64/libglxshim.so (error = null)
+```
+
+ตอนนี้ `libglxshim.so` ถูกคอมไพล์จาก `app/src/main/cpp/glxshim.c` ในรีโปนี้เสมอ (forward
+`glXGetProcAddress`/`glXGetProcAddressARB` ไป `eglGetProcAddress`, GLX context คืนค่า "ไม่มี GLX")
+และ workflow จะ **fail** ถ้า APK ไม่มี lib ที่ manifest ประกาศไว้
 
 ## สิ่งที่ต้องมีก่อน build
 
-1. Mesa arm64 build ที่มี `libglxshim.so`, `libEGL_mesa.so`, `libzink_dri.so` ตั้งเป็น repo variable `MESA_LIBS_URL` (หรือวางไฟล์ใน `app/src/main/jniLibs/arm64-v8a/` เอง)
-2. (ไม่บังคับ) ตั้ง `WITH_ADRENOTOOLS=1` เพื่อ build โหมด RADV ทดลอง
-
-Build: push ขึ้น GitHub แล้วรัน workflow `Build APK` หรือ `gradle assembleDebug` (JDK 17, Android SDK 35, NDK)
+1. รัน workflow `Build APK` (หรือ `gradle assembleDebug` ด้วย JDK 17 + SDK 35 + NDK)
+2. (ไม่บังคับ) ตั้ง repo variable `MESA_LIBS_URL` เป็น zip/tar.gz ของ Mesa arm64 ที่มี
+   `libEGL_mesa.so`, `libzink_dri.so` เพื่อฝังมาใน APK — ถ้าไม่ตั้ง ปลั๊กอินจะใช้ Mesa ที่มากับ launcher
+   (resolve ตามชื่อผ่าน `LD_LIBRARY_PATH`) ถ้า launcher ไม่มี Mesa ให้ ขั้น EGL จะล้มเหลว
+3. (ไม่บังคับ) ตั้ง `WITH_ADRENOTOOLS=1` เพื่อ build โหมด RADV ทดลอง
 
 ## ใช้งาน
 
-1. ติดตั้ง APK แล้ว force-stop FCL
+1. ติดตั้ง APK แล้ว force-stop launcher
 2. เปิดแอปนี้ → เลือกโหมด/preset → Save (ต้องอนุญาต All files access)
-3. FCL → Settings → Renderer → **Xclipse RDNA**
+3. Settings → Renderer → **Xclipse RDNA**
 
-โหมด RADV: ดาวน์โหลด zip จาก `JimVulkan/radv-xclipse` (รองรับ Xclipse 540, Android 14+) แล้วแตกไฟล์ `vulkan.radeon.so` ไปไว้ที่ `/sdcard/XclipseRDNA/radv/`
+`xclipse.env` รับค่าพิเศษเพิ่มได้: `XCLIPSE_EGL_LIB=<ชื่อหรือพาธของ EGL ที่ต้องการ>` (ค่าเริ่มต้น
+ลอง `libEGL_mesa.so` แล้วจึง `libEGL.so`)
+
+โหมด RADV: ดาวน์โหลด zip จาก `JimVulkan/radv-xclipse` (รองรับ Xclipse 540, Android 14+) แล้วแตกไฟล์
+`vulkan.radeon.so` ไปไว้ที่ `/sdcard/XclipseRDNA/radv/`
 
 ## ปัญหาที่ยังเปิดอยู่
 
 - Zink เรียก `dlopen("libvulkan.so")` เอง ไม่ใช้ handle ที่ libadrenotools คืนมา ต้องทำ dlopen interposition หรือแพตช์ Mesa
-- ไม่ทราบว่า libadrenotools ใช้กับ Xclipse ได้ในโปรเซสของ FCL หรือไม่ (README ของ RADV Xclipse ระบุแค่แอปอย่าง Eden/Winlator)
+- ไม่ทราบว่า libadrenotools ใช้กับ Xclipse ได้ในโปรเซสของ launcher หรือไม่
+- ยังไม่ได้ทดสอบบนเครื่องจริงหลังแก้ `libglxshim.so` — ต้องดู log ว่า EGL ที่ถูกเลือกคือ `libEGL_mesa.so` หรือ `libEGL.so`
 - ผู้พัฒนา RADV Xclipse ระบุว่า 540 ทดสอบเฉพาะบิลด์เก่ากับโปรแกรมทดสอบ ยังไม่จูนประสิทธิภาพ และ GPU hang อาจทำให้เครื่องรีบูต
 
 ## เครดิต / ไลเซนส์

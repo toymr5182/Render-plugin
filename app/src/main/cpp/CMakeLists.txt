@@ -4,6 +4,12 @@ project(xclipse_shim C)
 add_library(xclipse_shim SHARED xclipse_shim.c)
 target_link_libraries(xclipse_shim log dl)
 
+# libglxshim.so - the GL library the plugin's `renderer` metadata points at.
+# The launcher hands its absolute path to LWJGL (-Dorg.lwjgl.opengl.libname), so the APK must
+# contain it or the game crashes with "Failed to dynamically load library ... libglxshim.so".
+add_library(glxshim SHARED glxshim.c)
+target_link_libraries(glxshim log dl)
+
 # Optional: experimental RADV Xclipse activation via bylaws/libadrenotools.
 # CI sets -DXCLIPSE_ADRENOTOOLS_DIR=<checkout of libadrenotools>.
 option(XCLIPSE_WITH_ADRENOTOOLS "Link libadrenotools for custom Vulkan driver loading" OFF)
