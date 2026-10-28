@@ -33,8 +33,16 @@
 #ifdef __ANDROID__
 #include <android/log.h>
 #define LOG_TAG "XclipseRDNA/glx"
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
+// Launcher log viewers show the game process' stdout/stderr, not logcat, so write to both: logcat
+// for `adb logcat` and stderr so the lines appear in the launcher's own log / crash report.
+#define LOGI(...) do { \
+    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__); \
+    fprintf(stderr, "XclipseRDNA/glx: " __VA_ARGS__); fputc('\n', stderr); fflush(stderr); \
+} while (0)
+#define LOGW(...) do { \
+    __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__); \
+    fprintf(stderr, "XclipseRDNA/glx: " __VA_ARGS__); fputc('\n', stderr); fflush(stderr); \
+} while (0)
 #else
 // Allows a plain `cc -shared -fPIC glxshim.c -ldl` syntax/symbol check off-device.
 #define LOGI(...) do { fprintf(stderr, "[I] " __VA_ARGS__); fputc('\n', stderr); } while (0)
@@ -50,8 +58,12 @@ static pthread_once_t g_once = PTHREAD_ONCE_INIT;
 static void *g_egl_lib;
 static PFNEGLGETPROCADDRESSPROC g_egl_get_proc_address;
 
+static void load_egl(void);
+
 __attribute__((constructor)) static void glxshim_init(void) {
     LOGI("glxshim loaded (GLX entry points are forwarded to EGL)");
+    // Bind EGL eagerly so the log says which library is used before the launcher touches GL.
+    pthread_once(&g_once, load_egl);
 }
 
 static void *open_egl(const char *name) {

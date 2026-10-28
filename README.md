@@ -55,6 +55,16 @@ java.lang.UnsatisfiedLinkError: Failed to dynamically load library:
 context current (log จะขึ้น `XclipseRDNA/glx: glGetString(GL_VERSION) returned NULL ...`) — กัน crash
 ใน `strtol` ที่เห็นใน log ก่อนหน้า
 
+**`mesa_glthread` ปิดเป็นค่าเริ่มต้น** (glthread batch thread เป็นต้นเหตุ crash ที่พบบ่อยกับ Kopper บนไดรเวอร์
+Vulkan ของ vendors) — preset "Performance" เปิดให้
+
+log ของ shim เขียนลง **ทั้ง logcat และ stderr** จึงเห็นในหน้า log ของ launcher:
+
+```
+XclipseRDNA/glx: glxshim loaded (GLX entry points are forwarded to EGL)
+XclipseRDNA/glx: EGL library: libEGL_mesa.so
+```
+
 โหมด RADV: ดาวน์โหลด zip จาก `JimVulkan/radv-xclipse` (รองรับ Xclipse 540, Android 14+) แล้วแตกไฟล์
 `vulkan.radeon.so` ไปไว้ที่ `/sdcard/XclipseRDNA/radv/`
 

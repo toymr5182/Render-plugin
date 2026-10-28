@@ -93,7 +93,9 @@ class MainActivity : Activity() {
         if (radv) lines += "XCLIPSE_RADV_DIR=${File(dir, "radv").absolutePath}"
 
         lines += "MESA_LOADER_DRIVER_OVERRIDE=zink"
-        lines += "mesa_glthread=true"
+        // Off by default: the Mesa glthread batch thread is a known crash source with Kopper on
+        // vendor Vulkan drivers. The "Performance" preset turns it back on.
+        lines += "mesa_glthread=false"
         lines += "MESA_SHADER_CACHE_DIR=${File(dir, "shadercache").absolutePath}"
 
         // Only override the advertised version when asked: forcing 4.6 makes Zink fail to create a
@@ -104,8 +106,11 @@ class MainActivity : Activity() {
         }
 
         when (preset) {
-            1 -> lines += "ZINK_DESCRIPTORS=lazy"           // Performance
-            2 -> lines += "mesa_glthread=false"             // Max compatibility
+            1 -> {                                          // Performance
+                lines += "ZINK_DESCRIPTORS=lazy"
+                lines += "mesa_glthread=true"
+            }
+            2 -> lines += "ZINK_DESCRIPTORS=lazy"           // Max compatibility
         }
 
         dir.mkdirs()

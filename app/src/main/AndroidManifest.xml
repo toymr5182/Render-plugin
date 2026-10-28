@@ -24,9 +24,11 @@
         <!-- No MESA_GL_VERSION_OVERRIDE / MESA_GLSL_VERSION_OVERRIDE here on purpose: forcing 4.6 on a
              Vulkan driver that cannot back it makes Zink fail to create a context, and the launcher's
              GL version probe then crashes on the NULL string. The settings app writes those
-             overrides only when you explicitly ask for GL 3.3. -->
+             overrides only when you explicitly ask for GL 3.3.
+             mesa_glthread stays off: the Mesa glthread batch thread is a known crash source with
+             Kopper on vendor Vulkan drivers. Turn it back on with the "Performance" preset. -->
         <meta-data android:name="pojavEnv"
-            android:value="POJAV_RENDERER=opengles3_desktopgl_zink_kopper:MESA_LOADER_DRIVER_OVERRIDE=zink:mesa_glthread=true:DLOPEN=libxclipse_shim.so" />
+            android:value="POJAV_RENDERER=opengles3_desktopgl_zink_kopper:MESA_LOADER_DRIVER_OVERRIDE=zink:mesa_glthread=false:DLOPEN=libxclipse_shim.so" />
 
         <activity
             android:name=".MainActivity"
