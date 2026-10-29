@@ -30,24 +30,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef __ANDROID__
-#include <android/log.h>
+#include "xclog.h"
+
 #define LOG_TAG "XclipseRDNA/glx"
-// Launcher log viewers show the game process' stdout/stderr, not logcat, so write to both: logcat
-// for `adb logcat` and stderr so the lines appear in the launcher's own log / crash report.
-#define LOGI(...) do { \
-    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__); \
-    fprintf(stderr, "XclipseRDNA/glx: " __VA_ARGS__); fputc('\n', stderr); fflush(stderr); \
-} while (0)
-#define LOGW(...) do { \
-    __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__); \
-    fprintf(stderr, "XclipseRDNA/glx: " __VA_ARGS__); fputc('\n', stderr); fflush(stderr); \
-} while (0)
-#else
-// Allows a plain `cc -shared -fPIC glxshim.c -ldl` syntax/symbol check off-device.
-#define LOGI(...) do { fprintf(stderr, "[I] " __VA_ARGS__); fputc('\n', stderr); } while (0)
-#define LOGW(...) do { fprintf(stderr, "[W] " __VA_ARGS__); fputc('\n', stderr); } while (0)
-#endif
+// logcat for `adb logcat`, stderr for the launcher's log viewer, and a file the user can open with
+// any file manager (the launcher's own "share log" button crashes on its FileProvider config, so a
+// shareable file is the reliable route out of the device).
+#define LOGI(...) xc_log(0, LOG_TAG, __VA_ARGS__)
+#define LOGW(...) xc_log(1, LOG_TAG, __VA_ARGS__)
 
 // eglGetProcAddress / glXGetProcAddress both return "some function pointer"; the exact type is
 // intentionally opaque here, the caller casts.

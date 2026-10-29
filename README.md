@@ -9,6 +9,7 @@
 | โครงปลั๊กอิน (manifest `fclPlugin`/`renderer`/`pojavEnv`) | ทำงานกับ ZalithLauncher 3 ได้ (ตัวเลือก renderer ขึ้นในรายการ) |
 | `libglxshim.so` (GLX→EGL resolver) | build จากรีโปนี้เอง ไม่ต้องพึ่ง Mesa archive แล้ว |
 | หน้าตั้งค่า + `xclipse.env` + shim (`DLOPEN`) | shim ถูกโหลดจริงในโปรเซสเกม (ยืนยันจาก log) |
+| log ของปลั๊กอิน (`xclog.h`) | ลง logcat + stderr + **ไฟล์ที่เปิดจาก file manager เองได้** |
 | โหมด **System Vulkan** | ต้องมี `libEGL_mesa.so` + `libzink_dri.so` จากที่ใดที่หนึ่ง (bundled หรือของ launcher) |
 | โหมด **RADV Xclipse** | **ทดลอง** — shim ดึง `vulkan.radeon.so` มาไว้ที่ที่รันได้ แต่ยังไม่ทำให้ Zink ใช้ไดรเวอร์นั้น (ดู "ปัญหาที่ยังเปิดอยู่") |
 
@@ -71,12 +72,40 @@ context current (log จะขึ้น `XclipseRDNA/glx: glGetString(GL_VERSION
 **`mesa_glthread` ปิดเป็นค่าเริ่มต้น** (glthread batch thread เป็นต้นเหตุ crash ที่พบบ่อยกับ Kopper บนไดรเวอร์
 Vulkan ของ vendors) — preset "Performance" เปิดให้
 
-log ของ shim เขียนลง **ทั้ง logcat และ stderr** จึงเห็นในหน้า log ของ launcher:
+log ของ shim เขียนลง **logcat + stderr + ไฟล์** (ดูหัวข้อถัดไป):
 
 ```
 XclipseRDNA/glx: glxshim loaded (GLX entry points are forwarded to EGL)
 XclipseRDNA/glx: EGL library: libEGL_mesa.so
 ```
+
+### เอา log ออกมาจากเครื่องยังไง
+
+ปุ่ม **"แชร์ log" ของ launcher เอง crash** — ไม่เกี่ยวกับปลั๊กอินนี้:
+
+```
+java.lang.IllegalArgumentException: Failed to find configured root that contains
+  /data/data/com.movtery.zalithlauncher.v3/files/game/versions/.../latest_game.log
+  at androidx.core.content.FileProvider.c(FileProvider.java:190)
+```
+
+`FileProvider` ของ launcher ตั้ง `<paths>` ไม่ครอบโฟลเดอร์ `files/game/...` จึงสร้าง `content://` URI
+ให้ไฟล์ log ไม่ได้ (stack trace เป็นของตัว launcher ล้วน ๆ ไม่มีโค้ดปลั๊กอินอยู่ในนั้น)
+
+ทางออก: ปลั๊กอินเขียน log ของตัวเองลงไฟล์ที่คุณเปิดเองได้
+
+```
+/sdcard/Android/data/<แพ็กเกจ launcher>/files/xclipse_rdna.log
+```
+
+เช่น `/sdcard/Android/data/com.movtery.zalithlauncher.v3/files/xclipse_rdna.log` — เปิดด้วย file manager
+ที่เข้าถึง `Android/data` ได้ (ZArchiver, Material Files ฯลฯ) หรือ `adb pull` แล้ว paste ขึ้น mclo.gs
+
+ถ้า launcher มีสำเนาแยก ตั้ง `XCLIPSE_LOG_FILE=<พาธ>` ใน `xclipse.env` เพื่อกำหนดที่เก็บเองได้
+(ตัวเลือกอื่นที่ลองอัตโนมัติ: `Android/data/<pkg>/`, `files/xclipse_rdna.log` ใน data dir ของ launcher)
+
+ทางเลือกที่ตรงที่สุดถ้ามีคอม: `adb logcat -b crash -d` หลังเกมเด้ง — จะได้ native backtrace ของ
+SIGSEGV พร้อม memory map (แทน `hs_err_pid*.log` ที่อยู่ใน `/data/data` ซึ่งอ่านไม่ได้ถ้าไม่รูท)
 
 โหมด RADV: ดาวน์โหลด zip จาก `JimVulkan/radv-xclipse` (รองรับ Xclipse 540, Android 14+) แล้วแตกไฟล์
 `vulkan.radeon.so` ไปไว้ที่ `/sdcard/XclipseRDNA/radv/`

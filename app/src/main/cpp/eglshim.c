@@ -23,21 +23,12 @@
 
 #include <EGL/egl.h>
 
-#ifdef __ANDROID__
-#include <android/log.h>
+#include "xclog.h"
+
 #define LOG_TAG "XclipseRDNA/egl"
-#define LOGI(...) do { \
-    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__); \
-    fprintf(stderr, "XclipseRDNA/egl: " __VA_ARGS__); fputc('\n', stderr); fflush(stderr); \
-} while (0)
-#define LOGW(...) do { \
-    __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__); \
-    fprintf(stderr, "XclipseRDNA/egl: " __VA_ARGS__); fputc('\n', stderr); fflush(stderr); \
-} while (0)
-#else
-#define LOGI(...) do { fprintf(stderr, "[I] " __VA_ARGS__); fputc('\n', stderr); } while (0)
-#define LOGW(...) do { fprintf(stderr, "[W] " __VA_ARGS__); fputc('\n', stderr); } while (0)
-#endif
+// logcat + stderr + a file the user can open from a file manager (see xclog.h).
+#define LOGI(...) xc_log(0, LOG_TAG, __VA_ARGS__)
+#define LOGW(...) xc_log(1, LOG_TAG, __VA_ARGS__)
 
 #define GL_VENDOR                   0x1F00
 #define GL_RENDERER                 0x1F01
